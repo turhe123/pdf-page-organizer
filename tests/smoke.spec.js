@@ -176,6 +176,38 @@ test.describe('PDF Page Organizer', () => {
     await expect(page.locator('#dropzone')).toBeVisible();
   });
 
+  test('the toolbar is live right after loading, and saving without edits keeps every page', async ({ page }) => {
+    await openDeck(page);
+    await expect(page.locator('#save')).toBeEnabled();
+    await expect(page.locator('#select-all')).toBeEnabled();
+    await expect(page.locator('#undo')).toBeDisabled();
+    await page.click('#select-all');
+    await expect(page.locator('#page-grid .page-card.is-selected')).toHaveCount(5);
+    await expect(page.locator('#rotate-selected')).toBeEnabled();
+    await page.click('#select-all');
+    await expect(page.locator('#page-grid .page-card.is-selected')).toHaveCount(0);
+    const pages = await inspect(page, await saveAndDownload(page));
+    expect(numbers(pages)).toEqual([1, 2, 3, 4, 5]);
+    expect(pages.map((p) => p.rotation)).toEqual([0, 0, 0, 0, 0]);
+  });
+
+  test('a PDF opens normally after a file that failed to load', async ({ page }) => {
+    await open(page, 'locked.pdf');
+    await expect(page.locator('#results .alert--error')).toContainText(/password protected/);
+    await page.setInputFiles('#file-input', fixture(DECK));
+    await expect(page.locator('#page-grid .page-card')).toHaveCount(5);
+    await expect(page.locator('#results .alert--error')).toHaveCount(0);
+    await expect(page.locator('#save')).toBeEnabled();
+    // Damaged file, then a good one.
+    await page.click('#open-another');
+    await page.setInputFiles('#file-input', { name: 'broken.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 but nothing else') });
+    await expect(page.locator('#results .alert--error')).toContainText('could not be read as a PDF');
+    await page.setInputFiles('#file-input', fixture(DECK));
+    await expect(page.locator('#page-grid .page-card')).toHaveCount(5);
+    await expect(page.locator('#results .alert--error')).toHaveCount(0);
+    await saveAndDownload(page);
+  });
+
   test('wrong file types are rejected, also when mixed with a PDF', async ({ page }) => {
     await page.goto('./');
     await page.setInputFiles('#file-input', fixture('sample.png'));

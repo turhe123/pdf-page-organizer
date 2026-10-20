@@ -194,6 +194,7 @@ async function openPdf(file) {
     $('file-info').textContent = `${doc.pageCount} ${doc.pageCount === 1 ? 'page' : 'pages'} · ${formatBytes(doc.size)} · read on this device, not uploaded`;
     zone.hidden = true;
     organizer.hidden = false;
+    busy = false; // before render(): the toolbar reads this flag, so Save and Select all must not be drawn disabled
     render();
     grid.firstElementChild?.scrollIntoView({ block: 'nearest' });
     toast(`Opened ${doc.pageCount} pages — nothing was uploaded`);
@@ -202,6 +203,7 @@ async function openPdf(file) {
     loadingTask?.destroy();
     if (token !== loadToken) return false;
     prog.remove();
+    busy = false; // before resetToEmpty(): it bumps loadToken, after which the finally block no longer owns the flag
     resetToEmpty(false);
     showError(loadErrorMessage(err, file.name));
     return false;
